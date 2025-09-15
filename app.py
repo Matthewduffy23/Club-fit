@@ -175,7 +175,10 @@ scaled_team = scaler.fit_transform(club_profiles[features])
 target_scaled = scaler.transform([target_vector])[0]
 
 distance = np.linalg.norm((scaled_team - target_scaled) * weights, axis=1)
-base_fit = (1 - (distance - distance.min()) / (distance.ptp() if distance.ptp() else 1)) * 100
+dist = np.asarray(distance)                      # ensure NumPy array
+rng = dist.max() - dist.min()                    # range
+base_fit = (1 - (dist - dist.min()) / (rng if rng > 0 else 1)) * 100
+
 club_profiles['Club Fit %'] = base_fit.round(2)
 
 # ---------- League strength adjustment ----------
