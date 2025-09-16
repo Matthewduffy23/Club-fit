@@ -1,13 +1,15 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from pathlib import Path
+import math
 
 st.set_page_config(page_title="Club Fit", layout="wide")
 st.title("🏟️ Club Fit Finder")
 
-# ---------- Load data: read local CSV; fallback to uploader ----------
+# ---------- Load data ----------
 @st.cache_data
 def load_df_from_repo(csv_name: str = "WORLDJUNE25.csv"):
     p = Path(__file__).with_name(csv_name)
@@ -24,28 +26,45 @@ if df is None:
     df = pd.read_csv(uploaded)
 
 # ---------- Config ----------
-included_leagues = ['England 1.', 'England 2.', 'England 3.', 'England 4.', 'England 5.',
-'England 6.', 'England 7.', 'England 8.', 'England 9.', 'England 10.',
-'Albania 1.', 'Algeria 1.', 'Andorra 1.', 'Argentina 1.', 'Armenia 1.',
-'Australia 1.', 'Austria 1.', 'Austria 2.', 'Azerbaijan 1.', 'Belgium 1.',
-'Belgium 2.', 'Bolivia 1.', 'Bosnia 1.', 'Brazil 1.', 'Brazil 2.', 'Brazil 3.',
-'Bulgaria 1.', 'Canada 1.', 'Chile 1.', 'Colombia 1.', 'Costa Rica 1.',
-'Croatia 1.', 'Cyprus 1.', 'Czech 1.', 'Czech 2.', 'Denmark 1.', 'Denmark 2.',
-'Ecuador 1.', 'Egypt 1.', 'Estonia 1.', 'Finland 1.', 'France 1.', 'France 2.',
-'France 3.', 'Georgia 1.', 'Germany 1.', 'Germany 2.', 'Germany 3.',
-'Germany 4.', 'Greece 1.', 'Hungary 1.', 'Iceland 1.', 'Israel 1.',
-'Israel 2.', 'Italy 1.', 'Italy 2.', 'Italy 3.', 'Japan 1.', 'Japan 2.',
-'Kazakhstan 1.', 'Korea 1.', 'Latvia 1.', 'Lithuania 1.', 'Malta 1.',
-'Mexico 1.', 'Moldova 1.', 'Morocco 1.', 'Netherlands 1.', 'Netherlands 2.',
-'North Macedonia 1.', 'Northern Ireland 1.', 'Norway 1.', 'Norway 2.',
-'Paraguay 1.', 'Peru 1.', 'Poland 1.', 'Poland 2.', 'Portugal 1.',
-'Portugal 2.', 'Portugal 3.', 'Qatar 1.', 'Ireland 1.', 'Romania 1.',
-'Russia 1.', 'Saudi 1.', 'Scotland 1.', 'Scotland 2.', 'Scotland 3.',
-'Serbia 1.', 'Serbia 2.', 'Slovakia 1.', 'Slovakia 2.', 'Slovenia 1.',
-'Slovenia 2.', 'South Africa 1.', 'Spain 1.', 'Spain 2.', 'Spain 3.',
-'Sweden 1.', 'Sweden 2.', 'Switzerland 1.', 'Switzerland 2.', 'Tunisia 1.',
-'Turkey 1.', 'Turkey 2.', 'Ukraine 1.', 'UAE 1.', 'USA 1.', 'USA 2.',
-'Uruguay 1.', 'Uzbekistan 1.', 'Venezuela 1.', 'Wales 1.']
+included_leagues = [
+    'England 1.', 'England 2.', 'England 3.', 'England 4.', 'England 5.',
+    'England 6.', 'England 7.', 'England 8.', 'England 9.', 'England 10.',
+    'Albania 1.', 'Algeria 1.', 'Andorra 1.', 'Argentina 1.', 'Armenia 1.',
+    'Australia 1.', 'Austria 1.', 'Austria 2.', 'Azerbaijan 1.', 'Belgium 1.',
+    'Belgium 2.', 'Bolivia 1.', 'Bosnia 1.', 'Brazil 1.', 'Brazil 2.', 'Brazil 3.',
+    'Bulgaria 1.', 'Canada 1.', 'Chile 1.', 'Colombia 1.', 'Costa Rica 1.',
+    'Croatia 1.', 'Cyprus 1.', 'Czech 1.', 'Czech 2.', 'Denmark 1.', 'Denmark 2.',
+    'Ecuador 1.', 'Egypt 1.', 'Estonia 1.', 'Finland 1.', 'France 1.', 'France 2.',
+    'France 3.', 'Georgia 1.', 'Germany 1.', 'Germany 2.', 'Germany 3.', 'Germany 4.',
+    'Greece 1.', 'Hungary 1.', 'Iceland 1.', 'Israel 1.', 'Israel 2.', 'Italy 1.',
+    'Italy 2.', 'Italy 3.', 'Japan 1.', 'Japan 2.', 'Kazakhstan 1.', 'Korea 1.',
+    'Latvia 1.', 'Lithuania 1.', 'Malta 1.', 'Mexico 1.', 'Moldova 1.', 'Morocco 1.',
+    'Netherlands 1.', 'Netherlands 2.', 'North Macedonia 1.', 'Northern Ireland 1.',
+    'Norway 1.', 'Norway 2.', 'Paraguay 1.', 'Peru 1.', 'Poland 1.', 'Poland 2.',
+    'Portugal 1.', 'Portugal 2.', 'Portugal 3.', 'Qatar 1.', 'Ireland 1.', 'Romania 1.',
+    'Russia 1.', 'Saudi 1.', 'Scotland 1.', 'Scotland 2.', 'Scotland 3.', 'Serbia 1.',
+    'Serbia 2.', 'Slovakia 1.', 'Slovakia 2.', 'Slovenia 1.', 'Slovenia 2.', 'South Africa 1.',
+    'Spain 1.', 'Spain 2.', 'Spain 3.', 'Sweden 1.', 'Sweden 2.', 'Switzerland 1.',
+    'Switzerland 2.', 'Tunisia 1.', 'Turkey 1.', 'Turkey 2.', 'Ukraine 1.', 'UAE 1.',
+    'USA 1.', 'USA 2.', 'Uruguay 1.', 'Uzbekistan 1.', 'Venezuela 1.', 'Wales 1.'
+]
+
+# Presets for the CANDIDATE POOL
+PRESETS = {
+    "Top 5 Europe": [
+        'England 1.', 'France 1.', 'Germany 1.', 'Italy 1.', 'Spain 1.'
+    ],
+    "Top 20 Europe": [
+        'England 1.', 'Italy 1.', 'Spain 1.', 'Germany 1.', 'France 1.',
+        'England 2.', 'Portugal 1.', 'Belgium 1.',
+        'Turkey 1.', 'Germany 2.', 'Spain 2.', 'France 2.',
+        'Netherlands 1.', 'Austria 1.', 'Switzerland 1.', 'Denmark 1.', 'Croatia 1.',
+        'Italy 2.', 'Czech 1.', 'Norway 1.'
+    ],
+    "EFL (England 2–4)": ['England 2.', 'England 3.', 'England 4.'],
+    "All listed leagues": included_leagues,
+    "Custom": None,
+}
 
 features = [
     'Defensive duels per 90', 'Aerial duels per 90', 'Aerial duels won, %', 'PAdj Interceptions',
@@ -57,16 +76,16 @@ features = [
     'Deep completions per 90'
 ]
 
-# IMPORTANT: keys must EXACTLY match feature names
-weight_factors = {
-    'Passes per 90': 2, 
-    'Accurate passes, %': 2, 
+# Default weights (anything not listed defaults to 1.0 in the UI)
+default_weight_factors = {
+    'Passes per 90': 2,
+    'Accurate passes, %': 2,
     'Dribbles per 90': 2,
-    'Non-penalty goals per 90': 2,   # fixed casing
-    'Shots per 90': 2, 
+    'Non-penalty goals per 90': 2,
+    'Shots per 90': 2,
     'Successful dribbles, %': 2,
-    'Aerial duels won, %': 2, 
-    'xA per 90': 2, 
+    'Aerial duels won, %': 2,
+    'xA per 90': 2,
     'xG per 90': 2,
     'Touches in box per 90': 2,
 }
@@ -101,52 +120,113 @@ league_strengths = {
 DEFAULT_LEAGUE_WEIGHT = 0.2
 DEFAULT_MARKET_WEIGHT = 0.2
 
-# ---------- Sidebar controls ----------
+# ---------- Sidebar ----------
 with st.sidebar:
-    st.header("Controls")
+    st.header("Player & Pools")
 
-    leagues_available = sorted(sorted(set(included_leagues) | set(df.get('League', pd.Series([])).unique())))
-    leagues_selected = st.multiselect("Included leagues", leagues_available, default=included_leagues)
+    leagues_available = sorted(set(included_leagues) | set(df.get('League', pd.Series([])).dropna().unique()))
+
+    # Target leagues (for picking the target player)
+    target_leagues = st.multiselect(
+        "Target leagues (choose target from here)",
+        leagues_available,
+        default=leagues_available
+    )
+
+    # Candidate pool leagues via preset + extras
+    if 'candidate_leagues' not in st.session_state:
+        st.session_state.candidate_leagues = included_leagues.copy()
+
+    preset_name = st.selectbox("Candidate pool preset", list(PRESETS.keys()), index=0)
+    if st.button("Apply preset"):
+        preset = PRESETS[preset_name]
+        if preset is not None:
+            st.session_state.candidate_leagues = preset
+
+    extra_candidate_leagues = st.multiselect(
+        "Extra leagues to add to candidate pool",
+        leagues_available,
+        default=[]
+    )
+    # Final candidate set
+    leagues_selected = sorted(set(st.session_state.candidate_leagues) | set(extra_candidate_leagues))
+    st.caption(f"Candidate pool leagues: **{len(leagues_selected)}** selected.")
 
     pos_scope = st.text_input("Position startswith", "CF")
 
-    pool = df[df['League'].isin(leagues_selected)]
-    pool = pool[pool['Position'].astype(str).str.startswith(tuple([pos_scope]))]
-    target_player = st.selectbox("Target player", sorted(pool['Player'].dropna().unique()))
+    # Target player comes from target_leagues only (not restricted by candidate pool)
+    target_pool = df[df['League'].isin(target_leagues)]
+    target_pool = target_pool[target_pool['Position'].astype(str).str.startswith(tuple([pos_scope]))]
+    target_player = st.selectbox("Target player", sorted(target_pool['Player'].dropna().unique()))
 
-    min_minutes, max_minutes = st.slider("Minutes filter (for players used in team profiles)",
-                                         0, int(df['Minutes played'].max()), (500, 99999))
-    min_age, max_age = st.slider("Age filter", int(df['Age'].min()), int(df['Age'].max()), (16, 33))
+    st.header("Filters (for candidate teams)")
+    # Filters applied ONLY to the candidate pool that builds team profiles
+    # Set a big upper bound for minutes so you can include everyone by default
+    max_minutes_in_data = int(pd.to_numeric(df.get('Minutes played', pd.Series([0])), errors='coerce').fillna(0).max())
+    min_minutes, max_minutes = st.slider("Minutes filter", 0, max(1000, max_minutes_in_data), (500, max(1000, max_minutes_in_data)))
+    # Age bounds
+    age_series = pd.to_numeric(df.get('Age', pd.Series([16, 45])), errors='coerce')
+    age_min_data = int(np.nanmin(age_series)) if age_series.notna().any() else 14
+    age_max_data = int(np.nanmax(age_series)) if age_series.notna().any() else 45
+    min_age, max_age = st.slider("Age filter", age_min_data, age_max_data, (16, 33))
 
     min_strength, max_strength = st.slider("League quality (strength)", 0, 101, (0, 101))
 
+    st.header("Weights")
     league_weight = st.slider("League weight", 0.0, 1.0, DEFAULT_LEAGUE_WEIGHT, 0.05)
     market_value_weight = st.slider("Market value weight", 0.0, 1.0, DEFAULT_MARKET_WEIGHT, 0.05)
 
     manual_override = st.number_input("Target market value override (€)", min_value=0, value=0, step=100000)
 
+    # Advanced feature weights
+    st.subheader("Advanced feature weights")
+    st.caption("Unlisted features default to weight = 1.")
+    weights_ui = {}
+    for f in features:
+        default_val = default_weight_factors.get(f, 1)
+        weights_ui[f] = st.slider(f"• {f}", 0, 5, int(default_val))
+
     top_n = st.number_input("Show top N teams", 5, 100, 20, 5)
 
-# ---------- Data checks & filtering ----------
+# ---------- Data checks ----------
 required_cols = {'Player','Team','League','Age','Position','Minutes played','Market value', *features}
 missing = [c for c in required_cols if c not in df.columns]
 if missing:
     st.error(f"Missing required columns: {missing}")
     st.stop()
 
-df_f = df[df['League'].isin(leagues_selected)].copy()
-df_f = df_f[df_f['Position'].astype(str).str.startswith(tuple([pos_scope]))]
-df_f = df_f[df_f['Minutes played'].between(min_minutes, max_minutes)]
-df_f = df_f[df_f['Age'].between(min_age, max_age)]
-df_f = df_f.dropna(subset=features)
-df_f['Market value'] = pd.to_numeric(df_f['Market value'], errors='coerce')
+# ---------- Build candidate pool (teams) ----------
+df_candidates = df[df['League'].isin(leagues_selected)].copy()
+df_candidates = df_candidates[df_candidates['Position'].astype(str).str.startswith(tuple([pos_scope]))]
 
-if target_player not in df_f['Player'].values:
-    st.warning("Target player not in filtered pool—loosen filters.")
+# Coerce numerics for filters
+df_candidates['Minutes played'] = pd.to_numeric(df_candidates['Minutes played'], errors='coerce')
+df_candidates['Age'] = pd.to_numeric(df_candidates['Age'], errors='coerce')
+df_candidates['Market value'] = pd.to_numeric(df_candidates['Market value'], errors='coerce')
+
+df_candidates = df_candidates[
+    df_candidates['Minutes played'].between(min_minutes, max_minutes, inclusive='both')
+]
+df_candidates = df_candidates[
+    df_candidates['Age'].between(min_age, max_age, inclusive='both')
+]
+df_candidates = df_candidates.dropna(subset=features)
+
+if df_candidates.empty:
+    st.warning("No candidate players after filters. Widen candidate leagues or relax filters.")
     st.stop()
 
-# ---------- Target vector ----------
-target_row = df_f.loc[df_f['Player'] == target_player].iloc[0]
+# ---------- Target vector (from target_leagues pool only) ----------
+df_target_pool = df[df['League'].isin(target_leagues)].copy()
+df_target_pool = df_target_pool[df_target_pool['Position'].astype(str).str.startswith(tuple([pos_scope]))]
+if target_player not in df_target_pool['Player'].values:
+    st.warning("Target player not found in selected target leagues. Adjust 'Target leagues'.")
+    st.stop()
+
+# Ensure MV numeric for target info
+df_target_pool['Market value'] = pd.to_numeric(df_target_pool['Market value'], errors='coerce')
+
+target_row = df_target_pool.loc[df_target_pool['Player'] == target_player].iloc[0]
 target_vector = target_row[features].values
 target_league_strength = league_strengths.get(target_row['League'], 1.0)
 
@@ -156,34 +236,32 @@ else:
     mv = target_row['Market value']
     target_market_value = float(mv) if pd.notna(mv) and mv > 0 else 2_000_000.0
 
-# ---------- Build club profiles (unique per team) ----------
-# Team feature means (using filtered player pool)
-club_profiles = df_f.groupby(['Team'])[features].mean().reset_index()
+# ---------- Build club profiles (unique per team) from candidates ----------
+club_profiles = df_candidates.groupby(['Team'])[features].mean().reset_index()
 
-# Map each team to its dominant league and average team market value
-team_league = df_f.groupby('Team')['League'].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else x.iloc[0])
-team_market = df_f.groupby('Team')['Market value'].mean()
+# Team's dominant league & average team market value (from candidate pool)
+team_league = df_candidates.groupby('Team')['League'].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else x.iloc[0])
+team_market = df_candidates.groupby('Team')['Market value'].mean()
 
 club_profiles['League'] = club_profiles['Team'].map(team_league)
 club_profiles['Avg Team Market Value'] = club_profiles['Team'].map(team_market)
 club_profiles = club_profiles.dropna(subset=['Avg Team Market Value'])
 
 # ---------- Similarity (feature scaling + weights) ----------
-weights = np.array([weight_factors.get(f, 1) for f in features], dtype=float)
+weights_vec = np.array([weights_ui.get(f, 1) for f in features], dtype=float)
+
 scaler = StandardScaler()
 scaled_team = scaler.fit_transform(club_profiles[features])
 target_scaled = scaler.transform([target_vector])[0]
 
-distance = np.linalg.norm((scaled_team - target_scaled) * weights, axis=1)
-dist = np.asarray(distance)                      # ensure NumPy array
-rng = dist.max() - dist.min()                    # range
+# distance -> base fit (0..100)
+dist = np.linalg.norm((scaled_team - target_scaled) * weights_vec, axis=1)
+rng = dist.max() - dist.min()
 base_fit = (1 - (dist - dist.min()) / (rng if rng > 0 else 1)) * 100
-
 club_profiles['Club Fit %'] = base_fit.round(2)
 
 # ---------- League strength adjustment ----------
 club_profiles['League strength'] = club_profiles['League'].map(league_strengths).fillna(0.0)
-
 club_profiles = club_profiles[
     (club_profiles['League strength'] >= float(min_strength)) &
     (club_profiles['League strength'] <= float(max_strength))
@@ -195,6 +273,7 @@ club_profiles['Adjusted Fit %'] = (
     club_profiles['Club Fit %'] * ratio * league_weight
 )
 
+# small penalty if league significantly stronger than target
 league_gap = (club_profiles['League strength'] - target_league_strength).clip(lower=0)
 penalty = (1 - (league_gap / 100)).clip(lower=0.7)
 club_profiles['Adjusted Fit %'] = club_profiles['Adjusted Fit %'] * penalty
@@ -208,17 +287,38 @@ club_profiles['Final Fit %'] = (
     value_fit_score * market_value_weight
 )
 
-# ---------- Results: unique teams, ranked ----------
+# ---------- Results ----------
 results = club_profiles[['Team','League','League strength','Avg Team Market Value',
                          'Club Fit %','Adjusted Fit %','Final Fit %']].copy()
+
 results = results.sort_values('Final Fit %', ascending=False).reset_index(drop=True)
 results.insert(0, 'Rank', np.arange(1, len(results)+1))
 
 # ---------- UI ----------
-st.subheader(f"Target: {target_player} — {target_row['Team']} ({target_row['League']})")
-st.caption(f"Target market value used: €{target_market_value:,.0f} — League strength {target_league_strength:.2f}")
+st.subheader(
+    f"Target: {target_player} — {target_row.get('Team','Unknown')} ({target_row['League']})"
+)
+st.caption(
+    f"Target market value used: €{target_market_value:,.0f} • "
+    f"Target league strength {target_league_strength:.2f} • "
+    f"Candidate leagues: {len(leagues_selected)} (preset: {preset_name})"
+)
 
 st.dataframe(results.head(int(top_n)), use_container_width=True)
 
 csv = results.to_csv(index=False).encode('utf-8')
 st.download_button("⬇️ Download all results (CSV)", data=csv, file_name="club_fit_results.csv", mime="text/csv")
+
+with st.expander("Debug / Repro details"):
+    st.write({
+        "preset": preset_name,
+        "candidate_leagues_count": len(leagues_selected),
+        "target_leagues_count": len(target_leagues),
+        "league_weight": float(league_weight),
+        "market_value_weight": float(market_value_weight),
+        "target_market_value": float(target_market_value),
+        "minutes_range": (int(min_minutes), int(max_minutes)),
+        "age_range": (int(min_age), int(max_age)),
+        "strength_range": (int(min_strength), int(max_strength)),
+    })
+
