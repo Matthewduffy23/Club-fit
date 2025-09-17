@@ -117,7 +117,7 @@ league_strengths = {
     'England 6.': 0.00
 }
 
-DEFAULT_LEAGUE_WEIGHT = 0.2
+DEFAULT_LEAGUE_WEIGHT = 0.4
 DEFAULT_MARKET_WEIGHT = 0.2
 
 # ---------- Sidebar ----------
