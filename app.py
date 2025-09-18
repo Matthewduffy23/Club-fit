@@ -133,23 +133,39 @@ with st.sidebar:
         default=leagues_available
     )
 
-    # Candidate pool leagues via preset + extras
+    # Candidate pool leagues via preset + extras  (improved Custom: add & prune)
     if 'candidate_leagues' not in st.session_state:
         st.session_state.candidate_leagues = included_leagues.copy()
 
     preset_name = st.selectbox("Candidate pool preset", list(PRESETS.keys()), index=0)
-    if st.button("Apply preset"):
-        preset = PRESETS[preset_name]
-        if preset is not None:
-            st.session_state.candidate_leagues = preset
 
+    if st.button("Apply preset"):
+        preset = PRESETS.get(preset_name)
+        if preset is None:
+            # Custom -> start from ALL listed so you can prune freely
+            st.session_state.candidate_leagues = included_leagues.copy()
+        else:
+            st.session_state.candidate_leagues = list(preset)
+
+    # Optional extras (kept for backward-compat)
     extra_candidate_leagues = st.multiselect(
         "Extra leagues to add to candidate pool",
         leagues_available,
-        default=[]
+        default=[],
+        key="extra_candidate_leagues"
     )
-    # Final candidate set
-    leagues_selected = sorted(set(st.session_state.candidate_leagues) | set(extra_candidate_leagues))
+
+    # Final editable list (add or remove anything)
+    prefill = sorted(set(st.session_state.candidate_leagues) | set(extra_candidate_leagues))
+    leagues_selected = st.multiselect(
+        "Final candidate leagues (add or remove)",
+        leagues_available,
+        default=prefill,
+        key="final_candidate_leagues"
+    )
+    # Persist the final choice for subsequent runs
+    st.session_state.candidate_leagues = list(leagues_selected)
+
     st.caption(f"Candidate pool leagues: **{len(leagues_selected)}** selected.")
 
     pos_scope = st.text_input("Position startswith", "CF")
@@ -267,16 +283,13 @@ club_profiles = club_profiles[
     (club_profiles['League strength'] <= float(max_strength))
 ]
 
-ratio = (club_profiles['League strength'] / target_league_strength).clip(0.5, 1.2)
-club_profiles['Adjusted Fit %'] = (
-    club_profiles['Club Fit %'] * (1 - league_weight) +
-    club_profiles['Club Fit %'] * ratio * league_weight
-)
+# Symmetric league penalty/adjustment: penalize differences either way, never boost
+eps = 1e-6
+tgt_ls = max(float(target_league_strength), eps)
+cand_ls = np.maximum(club_profiles['League strength'].astype(float), eps)
+ratio = np.minimum(cand_ls / tgt_ls, tgt_ls / cand_ls)  # <= 1
 
-# small penalty if league significantly stronger than target
-league_gap = (club_profiles['League strength'] - target_league_strength).clip(lower=0)
-penalty = (1 - (league_gap / 100)).clip(lower=0.7)
-club_profiles['Adjusted Fit %'] = club_profiles['Adjusted Fit %'] * penalty
+club_profiles['Adjusted Fit %'] = club_profiles['Club Fit %'] * ((1 - league_weight) + league_weight * ratio)
 
 # ---------- Market value fit ----------
 value_fit_ratio = (club_profiles['Avg Team Market Value'] / target_market_value).clip(0.5, 1.5)
@@ -321,4 +334,5 @@ with st.expander("Debug / Repro details"):
         "age_range": (int(min_age), int(max_age)),
         "strength_range": (int(min_strength), int(max_strength)),
     })
+
 
